@@ -150,13 +150,13 @@ alpha_fields = message_types[message_types.value == 'alpha'].set_index('name')
 alpha_msgs = alpha_fields.groupby('message_type')
 alpha_formats = {k: v.to_dict() for k, v in alpha_msgs.formats}
 alpha_length = {k: v.add(5).to_dict() for k, v in alpha_msgs.length}
+print(alpha_fields.info())
+print(alpha_fields.head())
 
 message_fields, fstring = {}, {}
 for t, message in message_types.groupby('message_type'):
     message_fields[t] = namedtuple(typename=t, field_names=message.name.tolist())
     fstring[t] = '>' + ''.join(message.formats.tolist())
-print(alpha_fields.info())
-print(alpha_fields.head())
 
 
 def format_alpha(mtype, data):
@@ -214,51 +214,52 @@ def store_messages(m):
 messages = defaultdict(list)
 message_count = 0
 message_type_counter = Counter()
+#
+# start = time()
+# with file_name.open('rb') as data:
+#     while True:
+#
+#         # determine message size in bytes
+#         message_size = int.from_bytes(data.read(2), byteorder='big', signed=False)
+#
+#         # get message type by reading first byte
+#         message_type = data.read(1).decode('ascii')
+#         message_type_counter.update([message_type])
+#
+#         # read & store message
+#         record = data.read(message_size - 1)
+#         message = message_fields[message_type]._make(unpack(fstring[message_type], record))
+#         messages[message_type].append(message)
+#
+#         # deal with system events
+#         if message_type == 'S':
+#             seconds = int.from_bytes(message.timestamp, byteorder='big') * 1e-9
+#             print('\n', event_codes.get(message.event_code.decode('ascii'), 'Error'))
+#             print(f'\t{format_time(seconds)}\t{message_count:12,.0f}')
+#             if message.event_code.decode('ascii') == 'C':
+#                 store_messages(messages)
+#                 break
+#         message_count += 1
+#
+#         if message_count % 2.5e7 == 0:
+#             seconds = int.from_bytes(message.timestamp, byteorder='big') * 1e-9
+#             d = format_time(time() - start)
+#             print(f'\t{format_time(seconds)}\t{message_count:12,.0f}\t{d}')
+#             res = store_messages(messages)
+#             if res == 1:
+#                 print(pd.Series(dict(message_type_counter)).sort_values())
+#                 break
+#             messages.clear()
+#
+# print('Duration:', format_time(time() - start))
 
-start = time()
-with file_name.open('rb') as data:
-    while True:
 
-        # determine message size in bytes
-        message_size = int.from_bytes(data.read(2), byteorder='big', signed=False)
+# counter = pd.Series(message_type_counter).to_frame('# Trades')
+# counter['Message Type'] = counter.index.map(message_labels.set_index('message_type').name.to_dict())
+# counter = counter[['Message Type', '# Trades']].sort_values('# Trades', ascending=False)
+# with pd.HDFStore(itch_store) as store:
+#     store.put('summary', counter)
 
-        # get message type by reading first byte
-        message_type = data.read(1).decode('ascii')
-        message_type_counter.update([message_type])
-
-        # read & store message
-        record = data.read(message_size - 1)
-        message = message_fields[message_type]._make(unpack(fstring[message_type], record))
-        messages[message_type].append(message)
-
-        # deal with system events
-        if message_type == 'S':
-            seconds = int.from_bytes(message.timestamp, byteorder='big') * 1e-9
-            print('\n', event_codes.get(message.event_code.decode('ascii'), 'Error'))
-            print(f'\t{format_time(seconds)}\t{message_count:12,.0f}')
-            if message.event_code.decode('ascii') == 'C':
-                store_messages(messages)
-                break
-        message_count += 1
-
-        if message_count % 2.5e1 == 0:
-            seconds = int.from_bytes(message.timestamp, byteorder='big') * 1e-9
-            d = format_time(time() - start)
-            print(f'\t{format_time(seconds)}\t{message_count:12,.0f}\t{d}')
-            res = store_messages(messages)
-            if res == 1:
-                print(pd.Series(dict(message_type_counter)).sort_values())
-                break
-            messages.clear()
-
-print('Duration:', format_time(time() - start))
-
-
-counter = pd.Series(message_type_counter).to_frame('# Trades')
-counter['Message Type'] = counter.index.map(message_labels.set_index('message_type').name.to_dict())
-counter = counter[['Message Type', '# Trades']].sort_values('# Trades', ascending=False)
-with pd.HDFStore(itch_store) as store:
-    store.put('summary', counter)
 with pd.HDFStore(itch_store) as store:
     stocks = store['R'].loc[:, ['stock_locate', 'stock']]
     trades = store['P'].append(store['Q'].rename(columns={'cross_price': 'price'}), sort=False).merge(stocks)
@@ -270,7 +271,5 @@ plt.gca().yaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.0%}'.format(y
 sns.despine()
 plt.tight_layout()
 plt.show()
-
-
 
 pass
